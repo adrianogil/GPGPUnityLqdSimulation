@@ -17,6 +17,7 @@ public class LiquidSimulation : MonoBehaviour {
     public Color darkWaterColor;
 	public Color backgroundColor;
 
+    public int stateUpdatePerFrame = 3;
 
     public Material GPGPUMaterial;
     public Material GPGPUInputMaterial;
@@ -28,7 +29,7 @@ public class LiquidSimulation : MonoBehaviour {
 
         collider = GetComponent<MeshCollider>();
 	}
-	
+
 	// Update is called once per frame
 	void Update () {
 		if (Input.GetMouseButton (0)) {
@@ -36,7 +37,17 @@ public class LiquidSimulation : MonoBehaviour {
 		} else if (Input.GetMouseButton (1)) {
 			VerifyInputArea (0f);
 		}
+
+        for (int i = 0; i < stateUpdatePerFrame; i++)
+        {
+            UpdateState();
+        }
 	}
+
+    void UpdateState()
+    {
+        Graphics.Blit (liquidState, liquidState, GPGPUMaterial);
+    }
 
 	public void VerifyInputArea(float inputType)
 	{
@@ -52,7 +63,6 @@ public class LiquidSimulation : MonoBehaviour {
 			GPGPUInputMaterial.SetColor ("_BlockColor", blockColor);
 			GPGPUInputMaterial.SetColor("_LightWaterColor", lightWaterColor);
 			GPGPUInputMaterial.SetColor("_DarkWaterColor", darkWaterColor);
-            
 
 			Graphics.Blit (liquidState, liquidState, GPGPUInputMaterial);
 		}
@@ -64,16 +74,19 @@ public class LiquidSimulation : MonoBehaviour {
 
 		Texture2D initStateTexture = new Texture2D (stateSizeX, stateSizeY);
 
+        Color backgroundColorData = new Color(0f,0f,0f,1f);
+        Color blockColorData = new Color(0.25f,0f,0f,1f);
+
         for (int x = 0; x < stateSizeX; x++)
         {
             for (int y = 0; y < stateSizeY; y++)
             {
                 if (x == 0 || x == stateSizeX - 1 || y == 0 || y == stateSizeY - 1)
                 {
-					initStateTexture.SetPixel(x,y, blockColor);
+					initStateTexture.SetPixel(x,y, blockColorData);
                 }
                 else {
-                    initStateTexture.SetPixel(x,y, backgroundColor);   
+                    initStateTexture.SetPixel(x,y, backgroundColorData);
                 }
             }
         }
@@ -84,6 +97,10 @@ public class LiquidSimulation : MonoBehaviour {
 		MeshRenderer meshRenderer = GetComponent<MeshRenderer>();
 		if (meshRenderer != null) {
 			meshRenderer.material.mainTexture = liquidState;
+            meshRenderer.material.SetColor("_LightWaterColor", lightWaterColor);
+            meshRenderer.material.SetColor("_DarkWaterColor", darkWaterColor);
+            meshRenderer.material.SetColor("_BackgroundColor", backgroundColor);
+            meshRenderer.material.SetColor("_BlockColor", blockColor);
 		}
     }
 
@@ -111,15 +128,15 @@ public class LiquidSimulationEditor : Editor {
     public override void OnInspectorGUI()
     {
         base.OnInspectorGUI();
-    
+
         LiquidSimulation editorObj = target as LiquidSimulation;
-    
+
         if (editorObj == null) return;
 
         if (GUILayout.Button("Initialize"))
         {
             editorObj.InitState();
-        }        
+        }
     }
 
 }

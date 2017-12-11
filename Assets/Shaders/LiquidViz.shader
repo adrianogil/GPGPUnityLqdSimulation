@@ -2,6 +2,10 @@
 {
     Properties
     {
+        _BackgroundColor("Light Water Color", Color) = (1,1,1,1)
+        _BlockColor("Light Water Color", Color) = (1,1,1,1)
+        _LightWaterColor("Light Water Color", Color) = (1,1,1,1)
+        _DarkWaterColor("Dark Water Color", Color) = (1,1,1,1)
         _MainTex("Liquid State", 2D) = "white"
     }
     Subshader
@@ -13,6 +17,11 @@
             #pragma fragment frag
 
             sampler _MainTex;
+
+            float4 _LightWaterColor;
+            float4 _DarkWaterColor;
+            float4 _BackgroundColor;
+            float4 _BlockColor;
 
             struct vert_input
             {
@@ -38,7 +47,19 @@
 
             half4 frag(vert_output o) : COLOR
             {
-                return tex2D(_MainTex, o.uv);
+                half4 colorValue = tex2D(_MainTex, o.uv);
+
+                if (colorValue.x > 0.3)
+                {
+                    return lerp(_LightWaterColor, _DarkWaterColor, (colorValue.x-0.3)/0.7);
+                } else if (colorValue.x < 0.2)
+                {
+                    return _BackgroundColor;
+                } else {
+                    return _BlockColor;
+                }
+
+                return colorValue;
             }
 
             ENDCG
