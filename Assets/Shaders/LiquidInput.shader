@@ -53,8 +53,15 @@
 
             float4 frag(vert_output o) : COLOR
             {
-                if (_InputType == 1)
+                float4 tex = tex2D(_MainTex, o.uv);
+
+                if (abs(_InputType - 1) < 0.1)
                 {
+                    if (tex.x >= 0.2 && tex.r < 0.3)
+                    {
+                        return tex;
+                    }
+
                     float dist = length(o.uv - _NewPos);
 
                     if (dist < 0.025)
@@ -62,20 +69,20 @@
                         float4 newColorValue = float4(0,0,0,1);
 
                         float a = dist/0.025;
-                        newColorValue.x = 0.3 * a + (1 - a);
+                        newColorValue.x = (1.0/255.0) + 0.3 + 0.7*(1 - a);
                         newColorValue.yz = 0;
 
                         return newColorValue;
                     }
-                } else if (_InputType == 0)
+                } else if (abs(_InputType) < 0.1)
                 {
                     if (length(o.uv - _NewPos) < _MainTex_TexelSize.x)
                     {
-                        return _BlockColor;
+                        return float4(0.25,0,0,1);
                     }
                 }
 
-                return tex2D(_MainTex, o.uv);
+                return tex;
             }
 
             ENDCG

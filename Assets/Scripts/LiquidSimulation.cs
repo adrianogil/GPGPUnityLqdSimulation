@@ -17,7 +17,7 @@ public class LiquidSimulation : MonoBehaviour {
     public Color darkWaterColor;
 	public Color backgroundColor;
 
-    public int stateUpdatePerFrame = 3;
+    public int stateUpdatePerFrame = 8;
 
     public Material GPGPUMaterial;
     public Material GPGPUInputMaterial;

@@ -13,8 +13,17 @@
         Pass
         {
             CGPROGRAM
+// Upgrade NOTE: excluded shader from DX11, OpenGL ES 2.0 because it uses unsized arrays
+#pragma exclude_renderers d3d11 gles
             #pragma vertex vert
             #pragma fragment frag
+
+            #define ISBACKGROUND(P) ((P).x < 0.2)
+            #define ISBLOCK(P) ((P) >= 0.2 && (P) < 0.3)
+            #define ISWATER(P) ((P).x > 0.3)
+            #define UPDATEW(P,T) P = 0.3 + (T)*((P)-0.3)
+
+            #define MAX_IDEAL_WATER_CAPACITY_PER_PIXEL 0.65
 
             sampler _MainTex;
             float4 _MainTex_TexelSize;
@@ -48,9 +57,90 @@
                 return o;
             }
 
+            half4 onWater(half4 currentPixel,
+                          half4 belowPixel,
+                          half4 abovePixel,
+                          half4 leftPixel,
+                          half4 rightPixel)
+            {
+                if (ISWATER(abovePixel) && currentPixel.x < MAX_IDEAL_WATER_CAPACITY_PER_PIXEL)
+                {
+                    float currentPixelCapacity = (MAX_IDEAL_WATER_CAPACITY_PER_PIXEL - currentPixel.x) - 0.3;
+
+                    if (abovePixel.x - 0.3 > currentPixelCapacity)
+                    {
+                        currentPixel.x += currentPixelCapacity;
+                    } else {
+                        currentPixel.x += (abovePixel.x - 0.3);
+                    }
+                }
+                else {
+                    if (belowPixel.x < 0.2) { // Below is background
+                        if (currentPixel.x > 0.31){
+                            UPDATEW(currentPixel.x, 0.2); // 20% stays
+                        } else {
+                            currentPixel.x = 0; // Move every drop of water (Turns into Background)
+                        }
+                    } 
+                    else if (belowPixel.x <= 0.3) { // Below is block
+                        // Try to flow Into Left and Right Neighboring Cells
+                        // if (leftPixel.x <= 0.2 && rightPixel.x <= 0.2)
+                        // {
+                        //     UPDATEW(currentPixel.x, 0.4); // 40% stays
+                        // } else if (leftPixel.x <= 0.2) {
+                        //     UPDATEW(currentPixel.x, 0.6); // 60% stays
+                        // } else if (rightPixel.x <= 0.2) {
+                        //     UPDATEW(currentPixel.x, 0.6); // 60% stays
+                        // }
+                    } else { // Below is water
+                        if (belowPixel.x < MAX_IDEAL_WATER_CAPACITY_PER_PIXEL) {
+                            float capacityBelow = (MAX_IDEAL_WATER_CAPACITY_PER_PIXEL - belowPixel.x) - 0.3;
+                            if (currentPixel.x - 0.3 < capacityBelow) {
+                                currentPixel.x = 0;
+                            } else {
+                                currentPixel.x -= capacityBelow;
+                            }
+                        }
+                    }
+                }
+                
+
+                return currentPixel;
+            }
+
+            half4 onBackground(half4 currentPixel, 
+                               half4 abovePixel,
+                               half4 leftPixel,
+                               half4 leftistPixel)
+            {
+                if (abovePixel.x > 0.3) { // Upside pixel is water 
+                    if (abovePixel.x > 0.31)
+                    {
+                        currentPixel.x = 0.3 + 0.8*(abovePixel.x-0.3); // 80% falls
+                    } else {
+                        currentPixel.x = abovePixel.x; // 100% falls (because it remains only 0.1 of water in top pixel)
+                    }
+                } 
+                // else if (ISWATER(leftPixel.x)) // Left pixel is water
+                // {
+                //     if (ISBLOCK(leftistPixel.x)) // The leftist is block
+                //     {
+                //         // 
+                //         if (leftPixel.x > 0.31)
+                //         {
+                //             currentPixel.x = 0.3 + 0.8*(abovePixel.x-0.3); // 80% falls
+                //         } else {
+                //             currentPixel.x = abovePixel.x; // 100% falls (because it remains only 0.1 of water in top pixel)
+                //         }    
+                //     }
+                // }
+
+                return currentPixel;
+            }
+
             half4 frag(vert_output o) : COLOR
             {
-            	half4 texColors[9];
+            	half4 texColors[25];
                 #define GRABPIXEL(px,py) tex2D( _MainTex, o.uv + float2(px * _MainTex_TexelSize.x, py * _MainTex_TexelSize.y))
 
                 texColors[0] = GRABPIXEL(-1,-1);
@@ -63,43 +153,38 @@
                 texColors[7] = GRABPIXEL( 1, 0);
                 texColors[8] = GRABPIXEL( 1, 1);
 
+                texColors[ 9] = GRABPIXEL(-2,-2);
+                texColors[10] = GRABPIXEL(-2,-1);
+                texColors[11] = GRABPIXEL(-2, 0);
+                texColors[12] = GRABPIXEL(-2, 1);
+                texColors[13] = GRABPIXEL(-2, 2);
+                texColors[14] = GRABPIXEL( 2,-2);
+                texColors[15] = GRABPIXEL( 2,-1);
+                texColors[16] = GRABPIXEL( 2, 0);
+                texColors[17] = GRABPIXEL( 2, 1);
+                texColors[18] = GRABPIXEL( 2, 2);
+                texColors[19] = GRABPIXEL(-1,-2);
+                texColors[20] = GRABPIXEL( 0,-2);
+                texColors[21] = GRABPIXEL( 1,-2);
+                texColors[22] = GRABPIXEL(-1, 2);
+                texColors[23] = GRABPIXEL( 0, 2);
+                texColors[24] = GRABPIXEL( 1, 2);
+
                 if (texColors[4].x > 0.3) { // Current pixel is Water
-                	if (texColors[3].x <= 0.2) { // Below is background
-                		if (texColors[4].x > 0.31){
-                			texColors[4].x = 0.3 + 0.2*(texColors[4].x-0.3); // 20% stays
-                		} else {
-                			texColors[4].x = 0; // Move every drop of water
-                		}
-            		} else if (texColors[3].x > 0.2 && texColors[3].x <= 0.3) { // Below is block
-	            		// Try to flow Into Left and Right Neighboring Cells
-	            		if (texColors[0].x <= 0.2 && texColors[6].x <= 0.2)
-	            		{
-	            			texColors[4].x = 0.3 + 0.4*(texColors[4].x-0.3); // 40% stays
-	        			} else if (texColors[0].x <= 0.2) {
-	        				texColors[4].x = 0.3 + 0.6*(texColors[4].x-0.3); // 60% stays
-	    				} else if (texColors[6].x <= 0.2) {}
-	    					texColors[4].x = 0.3 + 0.6*(texColors[4].x-0.3); // 60% stays
-    				} else { // Below is water
-    					if (texColors[3].x < 0.9) {
-    						float capacityBelow = 0.9 - texColors[3].x;
-    						if (texColors[4].x - 0.3 < capacityBelow) {
-    							texColors[4].x = 0;
-							} else {
-								texColors[4].x -= capacityBelow;
-							}
-    					}
-    				}
+                     texColors[4] = onWater(texColors[4],  // current
+                                            texColors[0],  // below
+                                            texColors[5],  // above
+                                            texColors[1],  // left
+                                            texColors[7]   // right
+                                            ); 
             	}
 
-                if (texColors[4].x <= 0.2) { // Current pixel is Background
-                	if (texColors[5].x > 0.3) { //
-                		if (texColors[5].x > 0.31)
-                		{
-                			texColors[4].x = 0.3 + 0.8*(texColors[5].x-0.3); // 80% falls
-                		} else {
-                			texColors[4].x = texColors[5].x; // 90% falls
-                		}
-                	}
+                if (ISBACKGROUND(texColors[4])) { // Current pixel is Background
+                    texColors[4] = onBackground(texColors[4],
+                                             texColors[5],
+                                             texColors[1],
+                                             texColors[11]
+                                             );	
                 }
 
 
