@@ -6,6 +6,12 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
+public enum TextureGridType
+{
+    StateGrid,
+    VizGrid
+}
+
 public class LiquidSimulation : MonoBehaviour {
 
     public RenderTexture liquidState;
@@ -22,6 +28,28 @@ public class LiquidSimulation : MonoBehaviour {
     public Material GPGPUMaterial;
     public Material GPGPUInputMaterial;
     private MeshCollider collider;
+
+    [HideInInspector]
+    public bool alreadyStarted = false;
+
+    [HideInInspector]
+    public Color newColor = Color.black;
+
+    [HideInInspector]
+    public int pixelPosX;
+
+    [HideInInspector]
+    public int pixelPosY;
+
+    [HideInInspector]
+    public int currentGridPosX;
+
+    [HideInInspector]
+    public int currentGridPosY;
+
+    [HideInInspector]
+    public Texture2D textureGameState;
+
 
 	// Use this for initialization
 	void Start () {
@@ -44,9 +72,11 @@ public class LiquidSimulation : MonoBehaviour {
         }
 	}
 
-    void UpdateState()
+    public void UpdateState()
     {
         Graphics.Blit (liquidState, liquidState, GPGPUMaterial);
+
+        UpdateInternalTexture();
     }
 
 	public void VerifyInputArea(float inputType)
@@ -94,6 +124,10 @@ public class LiquidSimulation : MonoBehaviour {
 
 		Graphics.Blit (initStateTexture, liquidState);
 
+        textureGameState = new Texture2D (stateSizeX, stateSizeY);
+
+        UpdateInternalTexture();
+
 		MeshRenderer meshRenderer = GetComponent<MeshRenderer>();
 		if (meshRenderer != null) {
 			meshRenderer.material.mainTexture = liquidState;
@@ -102,6 +136,16 @@ public class LiquidSimulation : MonoBehaviour {
             meshRenderer.material.SetColor("_BackgroundColor", backgroundColor);
             meshRenderer.material.SetColor("_BlockColor", blockColor);
 		}
+
+        alreadyStarted = true;
+    }
+
+    private void UpdateInternalTexture()
+    {
+        RenderTexture.active = liquidState;
+
+        textureGameState.ReadPixels(new Rect(0, 0, stateSizeX, stateSizeY), 0, 0);
+        textureGameState.Apply();
     }
 
     public Vector2 GetUVFromHitPoint(Vector3 point)
@@ -119,11 +163,22 @@ public class LiquidSimulation : MonoBehaviour {
 
         return uv;
     }
+
+    public Color GetPixelColor(int x, int y, TextureGridType gridType)
+    {
+        if (gridType == TextureGridType.StateGrid)
+            return textureGameState.GetPixel(x,y);
+
+        return Color.black;
+    }
 }
 
 #if UNITY_EDITOR
 [CustomEditor(typeof(LiquidSimulation))]
 public class LiquidSimulationEditor : Editor {
+
+    private const int maxInnerWidth = 250;
+    private const int maxInnerHeight = 80;
 
     public override void OnInspectorGUI()
     {
@@ -137,6 +192,46 @@ public class LiquidSimulationEditor : Editor {
         {
             editorObj.InitState();
         }
+
+        if (editorObj.alreadyStarted)
+        {
+            if (GUILayout.Button("Update State")) {
+                editorObj.UpdateState();
+            }
+        }
+    }
+
+    public void OnDebugGrid(LiquidSimulation editorObj, TextureGridType gridType,
+        int sizeX, int sizeY)
+    {
+        editorObj.currentGridPosX = EditorGUILayout.IntField("Grid Start Position X:", editorObj.currentGridPosX);
+        editorObj.currentGridPosY = EditorGUILayout.IntField("Grid Start Position Y:", editorObj.currentGridPosY);
+
+        // Number of Cells
+        int cols = 25, rows = 15;
+
+        float gridItemWidth = maxInnerWidth/(1.0f * cols);
+
+        // GUI.Box(new Rect(5,5, 800, 800), "Colors");
+        // GUILayout.BeginArea(new Rect(10, 10, 700, 700));
+        GUILayout.BeginVertical();
+        for (int y = 0; y < rows && y < sizeX - editorObj.currentGridPosY; y++)
+        {
+            GUILayout.BeginHorizontal();
+            for (int x = 0; x < cols && x < sizeY - editorObj.currentGridPosX; x++)
+            {
+                    EditorGUILayout.ColorField(GUIContent.none,
+                                               // colorGrid.GetColor(x, y),
+                                               editorObj.GetPixelColor(x+editorObj.currentGridPosX,
+                                                                       y+editorObj.currentGridPosY,
+                                                                       gridType),
+                                               false, true, false, null, GUILayout.Width(gridItemWidth));
+
+            }
+            GUILayout.EndHorizontal();
+        }
+        GUILayout.EndVertical();
+        // GUILayout.EndArea();
     }
 
 }
