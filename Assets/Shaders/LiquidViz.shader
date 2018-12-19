@@ -13,6 +13,17 @@
         Pass
         {
             CGPROGRAM
+            // LiquidViz.shader:
+            //
+            // Water representation:
+            //      defines direction flow for current cell
+            //   Considering the resulting RGBA:
+            //   -> 0.3 < R <= 1.0 -> water
+            // Block representation:
+            //   -> 0.2 < R < 0.3
+            // Background representation:
+            //   -> R < 0.2
+            //
             #pragma vertex vert
             #pragma fragment frag
 

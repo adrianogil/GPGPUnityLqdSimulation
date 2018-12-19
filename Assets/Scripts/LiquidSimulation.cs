@@ -14,7 +14,7 @@ public enum TextureGridType
 
 public class LiquidSimulation : MonoBehaviour {
 
-    public RenderTexture liquidState;
+    public RenderTexture liquidState, liquidflow;
     public int stateSizeX = 200, stateSizeY = 200;
 
 	[Header("Color States")]
@@ -26,6 +26,7 @@ public class LiquidSimulation : MonoBehaviour {
     public int stateUpdatePerFrame = 8;
 
     public Material GPGPUMaterial;
+    public Material GPGPUFlowMaterial;
     public Material GPGPUInputMaterial;
     private MeshCollider collider;
 
@@ -70,13 +71,14 @@ public class LiquidSimulation : MonoBehaviour {
         {
             UpdateState();
         }
+
+        UpdateInternalTexture();
 	}
 
     public void UpdateState()
     {
+        Graphics.Blit (liquidState, liquidflow, GPGPUFlowMaterial);
         Graphics.Blit (liquidState, liquidState, GPGPUMaterial);
-
-        UpdateInternalTexture();
     }
 
 	public void VerifyInputArea(float inputType)
@@ -100,11 +102,14 @@ public class LiquidSimulation : MonoBehaviour {
 
     public void InitState()
     {
-		liquidState = new RenderTexture (stateSizeX, stateSizeY, 16, RenderTextureFormat.ARGB32);
+        liquidState = new RenderTexture (stateSizeX, stateSizeY, 16, RenderTextureFormat.ARGB32);
+		liquidflow = new RenderTexture (stateSizeX, stateSizeY, 16, RenderTextureFormat.ARGB32);
 
-		Texture2D initStateTexture = new Texture2D (stateSizeX, stateSizeY);
+        Texture2D initStateTexture = new Texture2D (stateSizeX, stateSizeY);
+		Texture2D initFlowStateTexture = new Texture2D (stateSizeX, stateSizeY);
 
         Color backgroundColorData = new Color(0f,0f,0f,1f);
+        Color noFlowData = new Color(0f,0f,0f,0f);
         Color blockColorData = new Color(0.25f,0f,0f,1f);
 
         for (int x = 0; x < stateSizeX; x++)
@@ -118,11 +123,16 @@ public class LiquidSimulation : MonoBehaviour {
                 else {
                     initStateTexture.SetPixel(x,y, backgroundColorData);
                 }
+                initFlowStateTexture.SetPixel(x,y, noFlowData);
             }
         }
 		initStateTexture.Apply();
+        initFlowStateTexture.Apply();
 
-		Graphics.Blit (initStateTexture, liquidState);
+        Graphics.Blit (initStateTexture, liquidState);
+		Graphics.Blit (initFlowStateTexture, liquidflow);
+
+        GPGPUMaterial.SetTexture("_FlowTex", liquidflow);
 
         textureGameState = new Texture2D (stateSizeX, stateSizeY);
 

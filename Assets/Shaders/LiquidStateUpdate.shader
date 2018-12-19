@@ -7,26 +7,40 @@
         _NewPos ("New Position", Vector) = (0.5,0.5,0,0)
         _InputType ("Input Type", float) = (0.5,0.5,0,0)
         _MainTex("Liquid State", 2D) = "white"
+        _FlowTex("Flow Direction", 2D) = "white"
     }
     Subshader
     {
         Pass
         {
             CGPROGRAM
-// Upgrade NOTE: excluded shader from DX11, OpenGL ES 2.0 because it uses unsized arrays
-#pragma exclude_renderers d3d11 gles
+            // Upgrade NOTE: excluded shader from DX11, OpenGL ES 2.0 because it uses unsized arrays
+            #pragma exclude_renderers d3d11 gles
             #pragma vertex vert
             #pragma fragment frag
 
-            #define ISBACKGROUND(P) ((P).x < 0.2)
-            #define ISBLOCK(P) ((P) >= 0.2 && (P) < 0.3)
+            #define TOWNORM(P) (((P) - 0.3)/0.7)
+            #define FROMWNORM(P) (0.3 + 0.7*(P))
+
             #define ISWATER(P) ((P).x > 0.3)
+            #define ISBLOCK(P) ((P) >= 0.2 && (P) < 0.3)
+            #define ISBACKGROUND(P) ((P).x < 0.2)
+
+            #define ISGOINGDOWN(P) ((P).y > 0)
+
+            #define WATER_GOINGDOWN(P) ((P).y)
+
+            #define WATER(P)  TOWNORM((P).x )
+            #define SETWATER(P, W)  (P).x = max(0.3, FROMWNORM((W)));
+
             #define UPDATEW(P,T) P = 0.3 + (T)*((P)-0.3)
 
             #define MAX_IDEAL_WATER_CAPACITY_PER_PIXEL 0.65
 
             sampler _MainTex;
+            sampler _FlowTex;
             float4 _MainTex_TexelSize;
+            float4 _FlowTex_TexelSize;
 
             float _InputType;
 
@@ -61,87 +75,54 @@
                           half4 belowPixel,
                           half4 abovePixel,
                           half4 leftPixel,
-                          half4 rightPixel)
+                          half4 rightPixel,
+                          half4 currentFlow,
+                          half4 belowFlow,
+                          half4 aboveFlow,
+                          half4 leftFlow,
+                          half4 rightFlow)
             {
-                if (ISWATER(abovePixel) && currentPixel.x < MAX_IDEAL_WATER_CAPACITY_PER_PIXEL)
-                {
-                    float currentPixelCapacity = (MAX_IDEAL_WATER_CAPACITY_PER_PIXEL - currentPixel.x) - 0.3;
+                half4 currentState = currentPixel;
 
-                    if (abovePixel.x - 0.3 > currentPixelCapacity)
-                    {
-                        currentPixel.x += currentPixelCapacity;
-                    } else {
-                        currentPixel.x += (abovePixel.x - 0.3);
-                    }
-                }
-                else {
-                    if (belowPixel.x < 0.2) { // Below is background
-                        if (currentPixel.x > 0.31){
-                            UPDATEW(currentPixel.x, 0.2); // 20% stays
-                        } else {
-                            currentPixel.x = 0; // Move every drop of water (Turns into Background)
-                        }
-                    } 
-                    else if (belowPixel.x <= 0.3) { // Below is block
-                        // Try to flow Into Left and Right Neighboring Cells
-                        // if (leftPixel.x <= 0.2 && rightPixel.x <= 0.2)
-                        // {
-                        //     UPDATEW(currentPixel.x, 0.4); // 40% stays
-                        // } else if (leftPixel.x <= 0.2) {
-                        //     UPDATEW(currentPixel.x, 0.6); // 60% stays
-                        // } else if (rightPixel.x <= 0.2) {
-                        //     UPDATEW(currentPixel.x, 0.6); // 60% stays
-                        // }
-                    } else { // Below is water
-                        if (belowPixel.x < MAX_IDEAL_WATER_CAPACITY_PER_PIXEL) {
-                            float capacityBelow = (MAX_IDEAL_WATER_CAPACITY_PER_PIXEL - belowPixel.x) - 0.3;
-                            if (currentPixel.x - 0.3 < capacityBelow) {
-                                currentPixel.x = 0;
-                            } else {
-                                currentPixel.x -= capacityBelow;
-                            }
-                        }
-                    }
-                }
-                
+                SETWATER(currentState, WATER(currentState) - 
+                    (currentFlow.y))
+                    // (currentFlow.x + currentFlow.y + currentFlow.z + currentFlow.w) );
 
-                return currentPixel;
+                // Reset all water to background
+                // currentState = half4(0.0, 0.0, 0.0, 0.0);
+
+                return currentState;
             }
 
-            half4 onBackground(half4 currentPixel, 
-                               half4 abovePixel,
-                               half4 leftPixel,
-                               half4 leftistPixel)
+            half4 onBackground(half4 currentPixel,
+                              half4 belowPixel,
+                              half4 abovePixel,
+                              half4 leftPixel,
+                              half4 rightPixel,
+                              half4 currentFlow,
+                              half4 belowFlow,
+                              half4 aboveFlow,
+                              half4 leftFlow,
+                              half4 rightFlow)
             {
-                if (abovePixel.x > 0.3) { // Upside pixel is water 
-                    if (abovePixel.x > 0.31)
-                    {
-                        currentPixel.x = 0.3 + 0.8*(abovePixel.x-0.3); // 80% falls
-                    } else {
-                        currentPixel.x = abovePixel.x; // 100% falls (because it remains only 0.1 of water in top pixel)
-                    }
-                } 
-                // else if (ISWATER(leftPixel.x)) // Left pixel is water
-                // {
-                //     if (ISBLOCK(leftistPixel.x)) // The leftist is block
-                //     {
-                //         // 
-                //         if (leftPixel.x > 0.31)
-                //         {
-                //             currentPixel.x = 0.3 + 0.8*(abovePixel.x-0.3); // 80% falls
-                //         } else {
-                //             currentPixel.x = abovePixel.x; // 100% falls (because it remains only 0.1 of water in top pixel)
-                //         }    
-                //     }
-                // }
+                half4 currentState = half4(0.0, 0.0, 0.0, 0.0);
 
-                return currentPixel;
+                if (ISWATER(abovePixel) && ISGOINGDOWN(aboveFlow))
+                {
+                    SETWATER(currentState, WATER_GOINGDOWN(aboveFlow))
+                }
+
+                // Reset all background to water
+                // currentState = half4(1.0, 0.0, 0.0, 0.0);
+
+                return currentState;
             }
 
             half4 frag(vert_output o) : COLOR
             {
-            	half4 texColors[25];
+            	half4 texColors[9], texFlow[9];
                 #define GRABPIXEL(px,py) tex2D( _MainTex, o.uv + float2(px * _MainTex_TexelSize.x, py * _MainTex_TexelSize.y))
+                #define GRABFLOW(px,py) tex2D( _FlowTex, o.uv + float2(px * _FlowTex_TexelSize.x, py * _FlowTex_TexelSize.y))
 
                 texColors[0] = GRABPIXEL(-1,-1);
                 texColors[1] = GRABPIXEL(-1, 0);
@@ -153,42 +134,49 @@
                 texColors[7] = GRABPIXEL( 1, 0);
                 texColors[8] = GRABPIXEL( 1, 1);
 
-                texColors[ 9] = GRABPIXEL(-2,-2);
-                texColors[10] = GRABPIXEL(-2,-1);
-                texColors[11] = GRABPIXEL(-2, 0);
-                texColors[12] = GRABPIXEL(-2, 1);
-                texColors[13] = GRABPIXEL(-2, 2);
-                texColors[14] = GRABPIXEL( 2,-2);
-                texColors[15] = GRABPIXEL( 2,-1);
-                texColors[16] = GRABPIXEL( 2, 0);
-                texColors[17] = GRABPIXEL( 2, 1);
-                texColors[18] = GRABPIXEL( 2, 2);
-                texColors[19] = GRABPIXEL(-1,-2);
-                texColors[20] = GRABPIXEL( 0,-2);
-                texColors[21] = GRABPIXEL( 1,-2);
-                texColors[22] = GRABPIXEL(-1, 2);
-                texColors[23] = GRABPIXEL( 0, 2);
-                texColors[24] = GRABPIXEL( 1, 2);
+                texFlow[0] = GRABFLOW(-1,-1);
+                texFlow[1] = GRABFLOW(-1, 0);
+                texFlow[2] = GRABFLOW(-1, 1);
+                texFlow[3] = GRABFLOW( 0,-1);
+                texFlow[4] = GRABFLOW( 0, 0);
+                texFlow[5] = GRABFLOW( 0, 1);
+                texFlow[6] = GRABFLOW( 1,-1);
+                texFlow[7] = GRABFLOW( 1, 0);
+                texFlow[8] = GRABFLOW( 1, 1);
 
-                if (texColors[4].x > 0.3) { // Current pixel is Water
-                     texColors[4] = onWater(texColors[4],  // current
+                half4 currentColor;
+
+                if (ISWATER(texColors[4])) { // Current pixel is Water
+                     currentColor = onWater(texColors[4],  // current
                                             texColors[0],  // below
                                             texColors[5],  // above
                                             texColors[1],  // left
-                                            texColors[7]   // right
+                                            texColors[7],   // right
+
+                                            texFlow[4],  // current flow direction
+                                            texFlow[0],  // below flow direction
+                                            texFlow[5],  // above flow direction
+                                            texFlow[1],  // left flow direction
+                                            texFlow[7]   // right flow direction
                                             ); 
-            	}
+            	} else if (ISBACKGROUND(texColors[4]))
+                {
+                    currentColor = onBackground(texColors[4],  // current
+                                                texColors[0],  // below
+                                                texColors[5],  // above
+                                                texColors[1],  // left
+                                                texColors[7],   // right
 
-                if (ISBACKGROUND(texColors[4])) { // Current pixel is Background
-                    texColors[4] = onBackground(texColors[4],
-                                             texColors[5],
-                                             texColors[1],
-                                             texColors[11]
-                                             );	
+                                                texFlow[4],  // current flow direction
+                                                texFlow[0],  // below flow direction
+                                                texFlow[5],  // above flow direction
+                                                texFlow[1],  // left flow direction
+                                                texFlow[7]   // right flow direction
+                                            ); 
                 }
+                
 
-
-                return texColors[4];
+                return currentColor;
             }
 
             ENDCG

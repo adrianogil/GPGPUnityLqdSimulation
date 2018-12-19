@@ -76,7 +76,7 @@
                     }
                 } else if (abs(_InputType) < 0.1)
                 {
-                    if (length(o.uv - _NewPos) < _MainTex_TexelSize.x)
+                    if (length(o.uv - _NewPos) < 6*_MainTex_TexelSize.x)
                     {
                         return float4(0.25,0,0,1);
                     }
