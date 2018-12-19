@@ -42,7 +42,7 @@ Shader "Custom/LiquidFlowUpdate" {
             #define MAX_IDEAL_WATER_CAPACITY_PER_PIXEL 0.65
 
             // The maximum amount of water that is going to fell down each update
-            #define WATER_MAX_FALL_VELOCITY (0.1)
+            #define WATER_MAX_FALL_VELOCITY (0.01)
 
             sampler _MainTex;
             float4 _MainTex_TexelSize;

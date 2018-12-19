@@ -68,7 +68,7 @@
                     {
                         float4 newColorValue = float4(0,0,0,1);
 
-                        float a = dist/0.025;
+                        float a = min(1, max(0, dist/0.025));
                         newColorValue.x = (1.0/255.0) + 0.3 + 0.7*(1 - a);
                         newColorValue.yz = 0;
 
@@ -78,7 +78,7 @@
                 {
                     if (length(o.uv - _NewPos) < 6*_MainTex_TexelSize.x)
                     {
-                        return float4(0.25,0,0,1);
+                        return float4(0.25,0,0,0);
                     }
                 }
 

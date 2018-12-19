@@ -23,7 +23,7 @@
             #define FROMWNORM(P) (0.3 + 0.7*(P))
 
             #define ISWATER(P) ((P).x > 0.3)
-            #define ISBLOCK(P) ((P) >= 0.2 && (P) < 0.3)
+            #define ISBLOCK(P) ((P).x >= 0.2 && (P).x < 0.3)
             #define ISBACKGROUND(P) ((P).x < 0.2)
 
             #define ISGOINGDOWN(P) ((P).y > 0)
@@ -31,7 +31,9 @@
             #define WATER_GOINGDOWN(P) ((P).y)
 
             #define WATER(P)  TOWNORM((P).x )
-            #define SETWATER(P, W)  (P).x = max(0.3, FROMWNORM((W)));
+            #define SETWATER(P, W)  (P).x = max(0.301, FROMWNORM((W)));
+            #define SETBLOCK(P)  (P).x = 0.25;
+            #define SETBACKGROUND(P)  (P).x = 0.10;
 
             #define UPDATEW(P,T) P = 0.3 + (T)*((P)-0.3)
 
@@ -84,9 +86,16 @@
             {
                 half4 currentState = currentPixel;
 
-                SETWATER(currentState, WATER(currentState) - 
-                    (currentFlow.y))
-                    // (currentFlow.x + currentFlow.y + currentFlow.z + currentFlow.w) );
+
+                if (WATER_GOINGDOWN(currentFlow) > WATER(currentState))
+                {
+                    SETBACKGROUND(currentState)
+                }
+                else {
+                    SETWATER(currentState, WATER(currentState) - (currentFlow.y))
+                }
+                
+                // (currentFlow.x + currentFlow.y + currentFlow.z + currentFlow.w) );
 
                 // Reset all water to background
                 // currentState = half4(0.0, 0.0, 0.0, 0.0);
@@ -173,6 +182,9 @@
                                                 texFlow[1],  // left flow direction
                                                 texFlow[7]   // right flow direction
                                             ); 
+                } else if (ISBLOCK(texColors[4]))
+                {
+                    SETBLOCK(currentColor);
                 }
                 
 
